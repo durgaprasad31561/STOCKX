@@ -302,17 +302,26 @@ export function AuthPage({ onLoginSuccess }) {
           ) : null}
 
           {['login', 'register'].includes(mode) ? (
-            <label className="field-wrap">
-              <span className="field-label">Password</span>
-              <input
-                type="password"
-                className="field-input"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                required
-              />
-            </label>
+            <>
+              <label className="field-wrap">
+                <span className="field-label">Password</span>
+                <input
+                  type="password"
+                  className="field-input"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter password"
+                  required
+                />
+              </label>
+              {mode === 'login' ? (
+                <div className="mt-1 text-right">
+                  <button type="button" onClick={openForgotPassword} className="text-xs text-cyan-300 underline">
+                    Forgot password?
+                  </button>
+                </div>
+              ) : null}
+            </>
           ) : null}
 
           {mode === 'login' && isDefaultAdminAttempt ? (
@@ -449,10 +458,7 @@ export function AuthPage({ onLoginSuccess }) {
               <button type="button" onClick={() => setMode('register')} className="text-cyan-300 underline">
                 Register here
               </button>
-              .{' '}
-              <button type="button" onClick={openForgotPassword} className="text-cyan-300 underline">
-                Forgot password?
-              </button>
+              .
             </>
           ) : mode === 'register' ? (
             <>
