@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AnimatePresence, motion as Motion } from 'framer-motion'
 import { AdminSearchesTable } from './components/AdminSearchesTable'
 import { AdminUsersTable } from './components/AdminUsersTable'
 import { ArchivePredictionsPanel } from './components/ArchivePredictionsPanel'
@@ -53,6 +54,7 @@ function App() {
   const [archivePredictions, setArchivePredictions] = useState(null)
   const [isArchiveLoading, setIsArchiveLoading] = useState(false)
   const [archiveError, setArchiveError] = useState('')
+  const [showAuthOverlay, setShowAuthOverlay] = useState(false)
   const [error, setError] = useState('')
   const [auth, setAuth] = useState(() => {
     try {
@@ -120,6 +122,8 @@ function App() {
     const nextAuth = { token: payload.token, user: payload.user }
     setAuth(nextAuth)
     localStorage.setItem('stocksentix_auth', JSON.stringify(nextAuth))
+    setShowAuthOverlay(false)
+    setError('')
   }
 
   function handleLogout() {
@@ -172,6 +176,11 @@ function App() {
 
   async function handleRunAnalysis() {
     setError('')
+    if (!auth?.token) {
+      setError('Please login to use analysis.')
+      setShowAuthOverlay(true)
+      return
+    }
     if (dateFrom > todayIso || dateTo > todayIso) {
       setError(`Future dates are not allowed. Please choose a date on or before ${todayIso}.`)
       return
@@ -226,10 +235,6 @@ function App() {
     }
   }
 
-  if (!auth?.token) {
-    return <AuthPage onLoginSuccess={handleLoginSuccess} />
-  }
-
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#090f1f] text-slate-100">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_10%,rgba(59,130,246,0.18),transparent_45%),radial-gradient(circle_at_88%_20%,rgba(52,211,153,0.16),transparent_40%),radial-gradient(circle_at_40%_90%,rgba(37,99,235,0.15),transparent_45%)]" />
@@ -244,7 +249,7 @@ function App() {
       </div>
 
       <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col px-4 pb-12 pt-5 sm:px-6 lg:px-8">
-        <NavBar authUser={auth.user} onLogout={handleLogout} />
+        <NavBar authUser={auth?.user} onLogout={handleLogout} onOpenAuth={() => setShowAuthOverlay(true)} />
         <HeroSection />
 
         <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -304,6 +309,26 @@ function App() {
         ) : null}
         {auth?.user?.role === 'admin' ? <AdminSearchesTable rows={userSearchRows} /> : null}
       </div>
+
+      <AnimatePresence>
+        {showAuthOverlay ? (
+          <Motion.div
+            className="fixed inset-0 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <button
+              className="absolute right-5 top-5 z-[60] rounded-full border border-white/20 bg-slate-900/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-200"
+              onClick={() => setShowAuthOverlay(false)}
+            >
+              Close
+            </button>
+            <AuthPage onLoginSuccess={handleLoginSuccess} />
+          </Motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-export function NavBar({ authUser, onLogout }) {
+export function NavBar({ authUser, onLogout, onOpenAuth }) {
   const isAdmin = authUser?.role === 'admin'
 
   return (
@@ -21,16 +21,28 @@ export function NavBar({ authUser, onLogout }) {
         )}
       </div>
       <div className="flex items-center gap-3">
-        <div className="hidden rounded-full border border-white/15 bg-slate-900/60 px-3 py-1 text-xs text-slate-200 md:block">
-          {authUser?.username} ({authUser?.role})
-        </div>
-        <button
-          className="rounded-full border border-cyan-400/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-cyan-300 transition hover:shadow-[0_0_20px_rgba(56,189,248,0.35)]"
-          aria-label="Logout"
-          onClick={onLogout}
-        >
-          Logout
-        </button>
+        {authUser ? (
+          <>
+            <div className="hidden rounded-full border border-white/15 bg-slate-900/60 px-3 py-1 text-xs text-slate-200 md:block">
+              {authUser?.username} ({authUser?.role})
+            </div>
+            <button
+              className="rounded-full border border-cyan-400/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-cyan-300 transition hover:shadow-[0_0_20px_rgba(56,189,248,0.35)]"
+              aria-label="Logout"
+              onClick={onLogout}
+            >
+              Logout
+            </button>
+          </>
+        ) : (
+          <button
+            className="rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-300 transition hover:shadow-[0_0_20px_rgba(16,185,129,0.35)]"
+            aria-label="Login or Register"
+            onClick={onOpenAuth}
+          >
+            Login / Register
+          </button>
+        )}
       </div>
     </nav>
   )
