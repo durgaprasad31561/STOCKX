@@ -1,0 +1,29 @@
+[
+  {
+    "date": "2026-02-13",
+    "stock": "MSFT",
+    "correlation": -0.1925,
+    "model": "VADER",
+    "dateFrom": "2026-01-01",
+    "dateTo": "2026-02-13",
+    "sampleSize": 29
+  },
+  {
+    "date": "2026-02-13",
+    "stock": "NIFTY50",
+    "correlation": -0.0069,
+    "model": "FinBERT",
+    "dateFrom": "2026-02-01",
+    "dateTo": "2026-03-13",
+    "sampleSize": 9
+  },
+  {
+    "date": "2026-02-13",
+    "stock": "NIFTY50",
+    "correlation": 0.0297,
+    "model": "FinBERT",
+    "dateFrom": "2026-01-01",
+    "dateTo": "2026-02-13",
+    "sampleSize": 27
+  }
+]

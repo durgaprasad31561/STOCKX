@@ -1,0 +1,45 @@
+{
+  "sourceFolder": "server/data/archive_1_extracted_2",
+  "outputFolder": "server/data/archive_1_predictions",
+  "generatedAt": "2026-02-16T17:00:50.387Z",
+  "datasets": {
+    "Combined_News_DJIA": {
+      "rows": 1989,
+      "trainRows": 1591,
+      "testRows": 398,
+      "metrics": {
+        "accuracy": 0.4673,
+        "precision": 0.4808,
+        "recall": 0.6188,
+        "f1": 0.5411,
+        "confusion": {
+          "tp": 125,
+          "tn": 61,
+          "fp": 135,
+          "fn": 77
+        }
+      },
+      "predictionsFile": "Combined_News_predictions.csv"
+    },
+    "RedditNews": {
+      "rows": 73608,
+      "aggregatedDates": 2943,
+      "predictionsFile": "RedditNews_date_predictions.csv"
+    },
+    "upload_DJIA_table": {
+      "rows": 1989,
+      "trainRows": 1589,
+      "testRows": 398,
+      "metrics": {
+        "mae": 126.0032,
+        "rmse": 167.1904,
+        "mape": 0.7301
+      },
+      "predictionsFile": "DJIA_next_close_test_predictions.csv",
+      "latestForecast": {
+        "lastKnownDate": "2016-07-01",
+        "predictedNextClose": 17963.4146
+      }
+    }
+  }
+}
