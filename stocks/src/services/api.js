@@ -1,4 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050'
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
+const API_BASE_URL = configuredApiBaseUrl || ''
 
 let authToken = ''
 
@@ -6,12 +7,40 @@ export function setAuthToken(token) {
   authToken = token || ''
 }
 
+function buildUrl(path) {
+  return `${API_BASE_URL}${path}`
+}
+
 async function parseResponse(response) {
-  const payload = await response.json()
-  if (!response.ok) {
-    throw new Error(payload?.error ?? `Request failed with ${response.status}`)
+  const rawText = await response.text()
+  let payload = null
+  if (rawText) {
+    try {
+      payload = JSON.parse(rawText)
+    } catch {
+      payload = null
+    }
   }
-  return payload
+
+  if (!response.ok) {
+    const fallbackMessage = rawText ? rawText.slice(0, 180) : `Request failed with ${response.status}`
+    throw new Error(payload?.error ?? fallbackMessage)
+  }
+  return payload ?? {}
+}
+
+async function request(path, options = {}) {
+  try {
+    const response = await fetch(buildUrl(path), options)
+    return parseResponse(response)
+  } catch (error) {
+    if (error instanceof TypeError && /fetch/i.test(error.message)) {
+      throw new Error(
+        'Unable to reach API server. Start backend server and verify VITE_API_BASE_URL if you are using a custom API host.',
+      )
+    }
+    throw error
+  }
 }
 
 function withAuth(headers = {}) {
@@ -23,132 +52,116 @@ function withAuth(headers = {}) {
 }
 
 export async function login(input) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+  return request('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   })
-  return parseResponse(response)
 }
 
 export async function register(input) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+  return request('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   })
-  return parseResponse(response)
 }
 
 export async function loginWithGoogle(idToken) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
+  return request('/api/auth/google', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ idToken }),
   })
-  return parseResponse(response)
 }
 
 export async function verifyEmailOtp(email, otp) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/verify-email-otp`, {
+  return request('/api/auth/verify-email-otp', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, otp }),
   })
-  return parseResponse(response)
 }
 
 export async function resendEmailOtp(email) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/resend-email-otp`, {
+  return request('/api/auth/resend-email-otp', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
   })
-  return parseResponse(response)
 }
 
 export async function requestPasswordResetOtp(email) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password-otp`, {
+  return request('/api/auth/forgot-password-otp', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
   })
-  return parseResponse(response)
 }
 
 export async function resetPasswordWithOtp(email, otp, newPassword) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/reset-password-otp`, {
+  return request('/api/auth/reset-password-otp', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, otp, newPassword }),
   })
-  return parseResponse(response)
 }
 
 export async function fetchLoginEvents() {
-  const response = await fetch(`${API_BASE_URL}/api/auth/events`, {
+  return request('/api/auth/events', {
     headers: withAuth(),
   })
-  return parseResponse(response)
 }
 
 export async function fetchUsers() {
-  const response = await fetch(`${API_BASE_URL}/api/auth/users`, {
+  return request('/api/auth/users', {
     headers: withAuth(),
   })
-  return parseResponse(response)
 }
 
 export async function deleteUser(userId) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/users/${userId}`, {
+  return request(`/api/auth/users/${userId}`, {
     method: 'DELETE',
     headers: withAuth(),
   })
-  return parseResponse(response)
 }
 
 export async function updateUserRole(userId, role) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/users/${userId}/role`, {
+  return request(`/api/auth/users/${userId}/role`, {
     method: 'PATCH',
     headers: withAuth({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ role }),
   })
-  return parseResponse(response)
 }
 
 export async function fetchUserSearches() {
-  const response = await fetch(`${API_BASE_URL}/api/auth/searches`, {
+  return request('/api/auth/searches', {
     headers: withAuth(),
   })
-  return parseResponse(response)
 }
 
 export async function runAnalysis(input) {
-  const response = await fetch(`${API_BASE_URL}/api/run`, {
+  return request('/api/run', {
     method: 'POST',
     headers: withAuth({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(input),
   })
-  return parseResponse(response)
 }
 
 export async function fetchHistory() {
-  const response = await fetch(`${API_BASE_URL}/api/history`, {
+  return request('/api/history', {
     headers: withAuth(),
   })
-  return parseResponse(response)
 }
 
 export async function fetchDataRange() {
-  const response = await fetch(`${API_BASE_URL}/api/data-range`, {
+  return request('/api/data-range', {
     headers: withAuth(),
   })
-  return parseResponse(response)
 }
 
 export async function fetchArchivePredictions() {
-  const response = await fetch(`${API_BASE_URL}/api/archive-predictions`, {
+  return request('/api/archive-predictions', {
     headers: withAuth(),
   })
-  return parseResponse(response)
 }
