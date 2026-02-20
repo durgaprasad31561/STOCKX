@@ -5,7 +5,9 @@ import { parse } from 'csv-parse/sync'
 import { requireAuth, requireRole } from '../middlewares/auth.js'
 import { runCorrelationAnalysis, runCsvPredictionAnalysis } from '../services/analysisService.js'
 import { getNewsDataRange } from '../services/dataSourceService.js'
+import { getComparisonData, getStockHistory, getStockQuote } from '../services/marketDataService.js'
 import { getRecentRuns, saveRun } from '../services/runStore.js'
+import { addUserWatchlistSymbol, getUserWatchlist, removeUserWatchlistSymbol } from '../services/watchlistStore.js'
 
 const archivePredictionsDir = path.resolve('server/data/archive_1_predictions')
 
@@ -118,6 +120,90 @@ export function createAnalysisRouter({ useMongo }) {
         return res.status(404).json({
           error: 'Archive prediction files were not found. Run prediction generation first.',
         })
+      }
+      next(error)
+    }
+  })
+
+  router.get('/watchlist', requireAuth, requireRole(['admin', 'user']), async (req, res, next) => {
+    try {
+      const symbols = await getUserWatchlist({
+        useMongo,
+        username: req.auth.username,
+      })
+      res.json({ symbols })
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  router.post('/watchlist', requireAuth, requireRole(['admin', 'user']), async (req, res, next) => {
+    try {
+      const symbols = await addUserWatchlistSymbol({
+        useMongo,
+        username: req.auth.username,
+        symbol: req.body?.symbol,
+      })
+      res.status(201).json({ symbols })
+    } catch (error) {
+      if (error?.message?.includes('symbol')) {
+        return res.status(400).json({ error: error.message })
+      }
+      next(error)
+    }
+  })
+
+  router.delete('/watchlist/:symbol', requireAuth, requireRole(['admin', 'user']), async (req, res, next) => {
+    try {
+      const symbols = await removeUserWatchlistSymbol({
+        useMongo,
+        username: req.auth.username,
+        symbol: req.params.symbol,
+      })
+      res.json({ symbols })
+    } catch (error) {
+      if (error?.message?.includes('symbol')) {
+        return res.status(400).json({ error: error.message })
+      }
+      next(error)
+    }
+  })
+
+  router.get('/market/quote/:symbol', requireAuth, requireRole(['admin', 'user']), async (req, res, next) => {
+    try {
+      const quote = await getStockQuote(req.params.symbol)
+      res.json({ quote })
+    } catch (error) {
+      if (error?.message?.toLowerCase().includes('market data') || error?.message?.includes('Symbol')) {
+        return res.status(400).json({ error: error.message })
+      }
+      next(error)
+    }
+  })
+
+  router.get('/market/history/:symbol', requireAuth, requireRole(['admin', 'user']), async (req, res, next) => {
+    try {
+      const history = await getStockHistory(req.params.symbol, req.query.range)
+      res.json(history)
+    } catch (error) {
+      if (error?.message?.toLowerCase().includes('market data') || error?.message?.includes('Symbol')) {
+        return res.status(400).json({ error: error.message })
+      }
+      next(error)
+    }
+  })
+
+  router.get('/market/compare', requireAuth, requireRole(['admin', 'user']), async (req, res, next) => {
+    try {
+      const symbols = String(req.query.symbols || '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+      const payload = await getComparisonData(symbols, req.query.range)
+      res.json(payload)
+    } catch (error) {
+      if (error?.message?.toLowerCase().includes('select at least') || error?.message?.toLowerCase().includes('market data')) {
+        return res.status(400).json({ error: error.message })
       }
       next(error)
     }

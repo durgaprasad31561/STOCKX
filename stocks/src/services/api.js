@@ -7,6 +7,17 @@ export function setAuthToken(token) {
   authToken = token || ''
 }
 
+function readTokenFromStorage() {
+  try {
+    const raw = localStorage.getItem('stocksentix_auth')
+    if (!raw) return ''
+    const parsed = JSON.parse(raw)
+    return parsed?.token || ''
+  } catch {
+    return ''
+  }
+}
+
 function buildUrl(path) {
   return `${API_BASE_URL}${path}`
 }
@@ -44,10 +55,11 @@ async function request(path, options = {}) {
 }
 
 function withAuth(headers = {}) {
-  if (!authToken) return headers
+  const token = authToken || readTokenFromStorage()
+  if (!token) return headers
   return {
     ...headers,
-    Authorization: `Bearer ${authToken}`,
+    Authorization: `Bearer ${token}`,
   }
 }
 
@@ -162,6 +174,46 @@ export async function fetchDataRange() {
 
 export async function fetchArchivePredictions() {
   return request('/api/archive-predictions', {
+    headers: withAuth(),
+  })
+}
+
+export async function fetchWatchlist() {
+  return request('/api/watchlist', {
+    headers: withAuth(),
+  })
+}
+
+export async function addToWatchlist(symbol) {
+  return request('/api/watchlist', {
+    method: 'POST',
+    headers: withAuth({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ symbol }),
+  })
+}
+
+export async function removeFromWatchlist(symbol) {
+  return request(`/api/watchlist/${encodeURIComponent(symbol)}`, {
+    method: 'DELETE',
+    headers: withAuth(),
+  })
+}
+
+export async function fetchStockQuote(symbol) {
+  return request(`/api/market/quote/${encodeURIComponent(symbol)}`, {
+    headers: withAuth(),
+  })
+}
+
+export async function fetchStockHistory(symbol, range = '3mo') {
+  return request(`/api/market/history/${encodeURIComponent(symbol)}?range=${encodeURIComponent(range)}`, {
+    headers: withAuth(),
+  })
+}
+
+export async function fetchStockComparison(symbols, range = '3mo') {
+  const encodedSymbols = encodeURIComponent((symbols || []).join(','))
+  return request(`/api/market/compare?symbols=${encodedSymbols}&range=${encodeURIComponent(range)}`, {
     headers: withAuth(),
   })
 }
