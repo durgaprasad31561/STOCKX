@@ -4,6 +4,7 @@ import { AdminSearchesTable } from './components/AdminSearchesTable'
 import { AdminUsersTable } from './components/AdminUsersTable'
 import { ArchivePredictionsPanel } from './components/ArchivePredictionsPanel'
 import { AuthPage } from './components/AuthPage'
+import { CandlestickChartAnalysis } from './components/CandlestickChartAnalysis'
 import { ChartsSection } from './components/ChartsSection'
 import { ControlPanel } from './components/ControlPanel'
 import { CorrelationCard } from './components/CorrelationCard'
@@ -19,6 +20,7 @@ import {
   fetchArchivePredictions,
   fetchDataRange,
   fetchLoginEvents,
+  fetchStockHistory,
   fetchUserSearches,
   fetchUsers,
   runAnalysis,
@@ -54,6 +56,9 @@ function App() {
   const [archivePredictions, setArchivePredictions] = useState(null)
   const [isArchiveLoading, setIsArchiveLoading] = useState(false)
   const [archiveError, setArchiveError] = useState('')
+  const [candlestickPoints, setCandlestickPoints] = useState([])
+  const [isCandlestickLoading, setIsCandlestickLoading] = useState(false)
+  const [candlestickError, setCandlestickError] = useState('')
   const [showAuthOverlay, setShowAuthOverlay] = useState(false)
   const [error, setError] = useState('')
   const [auth, setAuth] = useState(() => {
@@ -118,6 +123,36 @@ function App() {
     loadAdminData()
   }, [auth])
 
+  useEffect(() => {
+    if (!auth?.token || !ticker || model === 'CSV-ML') {
+      setCandlestickPoints([])
+      setCandlestickError('')
+      return
+    }
+
+    let cancelled = false
+    async function loadCandlestickData() {
+      setIsCandlestickLoading(true)
+      setCandlestickError('')
+      try {
+        const payload = await fetchStockHistory(ticker, '3mo')
+        if (cancelled) return
+        setCandlestickPoints(payload?.points ?? [])
+      } catch (err) {
+        if (cancelled) return
+        setCandlestickPoints([])
+        setCandlestickError(err.message)
+      } finally {
+        if (!cancelled) setIsCandlestickLoading(false)
+      }
+    }
+
+    loadCandlestickData()
+    return () => {
+      cancelled = true
+    }
+  }, [auth, ticker, model])
+
   function handleLoginSuccess(payload) {
     const nextAuth = { token: payload.token, user: payload.user }
     setAuth(nextAuth)
@@ -148,6 +183,9 @@ function App() {
     setExplanation('Run analysis to compute sentiment and next-day return correlation for your selected range.')
     setArchivePredictions(null)
     setArchiveError('')
+    setCandlestickPoints([])
+    setIsCandlestickLoading(false)
+    setCandlestickError('')
     setError('')
   }
 
@@ -284,6 +322,12 @@ function App() {
         ) : null}
 
         <ChartsSection sentimentVsReturn={scatterData} rollingCorrelation={rollingData} />
+        <CandlestickChartAnalysis
+          symbol={ticker}
+          points={candlestickPoints}
+          isLoading={isCandlestickLoading}
+          error={candlestickError}
+        />
         <WorkflowInsights
           dailySentimentRows={dailySentimentRows}
           stockReturnRows={stockReturnRows}

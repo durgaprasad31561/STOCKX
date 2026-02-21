@@ -55,13 +55,22 @@ async function fetchYahooChart(symbol, { range = '3mo', interval = '1d' } = {}) 
 }
 
 function buildHistoryRows(result) {
+  const opens = result.indicators.quote[0]?.open || []
+  const highs = result.indicators.quote[0]?.high || []
+  const lows = result.indicators.quote[0]?.low || []
   const closes = result.indicators.quote[0]?.close || []
   const rows = []
   for (let index = 0; index < result.timestamp.length; index += 1) {
     const close = closes[index]
     if (close == null || Number.isNaN(close)) continue
+    const open = Number(opens[index])
+    const high = Number(highs[index])
+    const low = Number(lows[index])
     rows.push({
       date: toIsoDay(result.timestamp[index]),
+      open: Number.isFinite(open) ? open : Number(close),
+      high: Number.isFinite(high) ? high : Number(close),
+      low: Number.isFinite(low) ? low : Number(close),
       close: Number(close),
     })
   }
