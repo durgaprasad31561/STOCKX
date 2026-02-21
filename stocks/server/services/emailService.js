@@ -10,6 +10,7 @@ function createTransporter() {
     host: env.smtpHost,
     port: env.smtpPort,
     secure: env.smtpSecure,
+    family: 4,
     connectionTimeout: 8000,
     greetingTimeout: 8000,
     socketTimeout: 12000,
@@ -23,6 +24,10 @@ function createTransporter() {
 function normalizeSmtpError(error) {
   const code = String(error?.code || '').toUpperCase()
   const message = String(error?.message || '')
+  const isIpv6Unreachable = code === 'ENETUNREACH' || /local\s*\(::0\)/i.test(message)
+  if (isIpv6Unreachable) {
+    return new Error('SMTP network route failed (IPv6 unreachable). Service is now configured to force IPv4; redeploy and retry.')
+  }
   const isTimeout = code === 'ETIMEDOUT' || /timed?\s*out/i.test(message)
   if (isTimeout) {
     return new Error('SMTP connection timed out. Check SMTP_HOST/PORT/SECURE and Gmail App Password.')
