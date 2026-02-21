@@ -47,6 +47,48 @@ async function readKaggleCsv(filePath) {
   })
 }
 
+function normalizeTickerValue(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9.^=-]/g, '')
+}
+
+function normalizeDateValue(value) {
+  if (!value) return ''
+  const raw = String(value).trim()
+  if (!raw) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
+  const parsed = new Date(raw)
+  if (Number.isNaN(parsed.getTime())) return ''
+  return toIsoDate(parsed)
+}
+
+async function fileExists(filePath) {
+  try {
+    await fs.stat(path.resolve(filePath))
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function readTickerNewsCsv(filePath) {
+  const fullPath = path.resolve(filePath)
+  const raw = await fs.readFile(fullPath, 'utf8')
+  const records = parse(raw, { columns: true, skip_empty_lines: true })
+  return records
+    .map((row) => {
+      const ticker = normalizeTickerValue(row.ticker || row.symbol || row.Symbol || '')
+      const date = normalizeDateValue(
+        row.date || row.Date || row.datetime || row.publishedAt || row.published_at || row.time || '',
+      )
+      const headline = String(row.headline || row.title || row.Headline || '').trim()
+      return { ticker, date, headline }
+    })
+    .filter((row) => row.ticker && row.date && row.headline)
+}
+
 function resolveNewsRange(records) {
   const dates = records
     .map((item) => String(item.date || '').trim())
@@ -75,9 +117,43 @@ function groupNews(records, startDate, endDate) {
   return out
 }
 
-export async function loadNewsByDate({ dateFrom, dateTo }) {
+function groupTickerNews(records, startDate, endDate, ticker) {
+  const out = {}
+  const start = toIsoDate(startDate)
+  const end = toIsoDate(endDate)
+  const target = normalizeTickerValue(ticker)
+
+  for (const item of records) {
+    if (!item?.date || !item?.headline || !item?.ticker) continue
+    if (item.date < start || item.date > end) continue
+    if (target && item.ticker !== target) continue
+    out[item.date] = out[item.date] || []
+    out[item.date].push(item.headline)
+  }
+
+  return out
+}
+
+function hasHeadlinesByDate(grouped) {
+  return Object.values(grouped || {}).some((headlines) => Array.isArray(headlines) && headlines.length > 0)
+}
+
+export async function loadNewsByDate({ dateFrom, dateTo, ticker }) {
   const startDate = parseDateInput(dateFrom)
   const endDate = parseDateInput(dateTo)
+
+  if (env.tickerNewsDatasetPath && (await fileExists(env.tickerNewsDatasetPath))) {
+    try {
+      const tickerRecords = await readTickerNewsCsv(env.tickerNewsDatasetPath)
+      const groupedTickerNews = groupTickerNews(tickerRecords, startDate, endDate, ticker)
+      if (hasHeadlinesByDate(groupedTickerNews)) {
+        return groupedTickerNews
+      }
+    } catch (error) {
+      console.warn(`[news] Failed reading ticker news dataset, using fallback source: ${error.message}`)
+    }
+  }
+
   const isCsv = env.newsDatasetPath.toLowerCase().endsWith('.csv')
   const records = isCsv ? await readKaggleCsv(env.newsDatasetPath) : await readFallbackNews()
   return groupNews(records, startDate, endDate)
@@ -85,6 +161,16 @@ export async function loadNewsByDate({ dateFrom, dateTo }) {
 
 export async function getNewsDataRange() {
   if (newsRangeCache) return newsRangeCache
+
+  if (env.tickerNewsDatasetPath && (await fileExists(env.tickerNewsDatasetPath))) {
+    try {
+      const tickerRecords = await readTickerNewsCsv(env.tickerNewsDatasetPath)
+      newsRangeCache = resolveNewsRange(tickerRecords)
+      return newsRangeCache
+    } catch (error) {
+      console.warn(`[news] Failed reading ticker news range, using fallback source: ${error.message}`)
+    }
+  }
 
   const isCsv = env.newsDatasetPath.toLowerCase().endsWith('.csv')
   const records = isCsv ? await readKaggleCsv(env.newsDatasetPath) : await readFallbackNews()

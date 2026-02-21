@@ -87,6 +87,225 @@ function rollingCompoundReturn(returns, window = 5) {
   return out
 }
 
+const eventRulebook = [
+  {
+    id: 'layoffs',
+    label: 'Workforce Reduction',
+    direction: 'down',
+    weight: -1.35,
+    keywords: ['layoff', 'layoffs', 'job cut', 'workforce reduction', 'headcount reduction', 'restructuring'],
+  },
+  {
+    id: 'ceo_exit',
+    label: 'Leadership Exit',
+    direction: 'down',
+    weight: -1.4,
+    keywords: ['ceo resign', 'ceo steps down', 'chief executive resign', 'leadership change', 'executive departure'],
+  },
+  {
+    id: 'guidance_cut',
+    label: 'Guidance Cut',
+    direction: 'down',
+    weight: -1.5,
+    keywords: ['guidance cut', 'cuts forecast', 'lowers forecast', 'warning', 'profit warning'],
+  },
+  {
+    id: 'lawsuit',
+    label: 'Legal/Regulatory Risk',
+    direction: 'down',
+    weight: -1.2,
+    keywords: ['lawsuit', 'investigation', 'probe', 'fine', 'regulator'],
+  },
+  {
+    id: 'earnings_miss',
+    label: 'Earnings Miss',
+    direction: 'down',
+    weight: -1.45,
+    keywords: ['earnings miss', 'misses estimates', 'below expectations', 'revenue miss'],
+  },
+  {
+    id: 'earnings_beat',
+    label: 'Earnings Beat',
+    direction: 'up',
+    weight: 1.45,
+    keywords: ['earnings beat', 'beats estimates', 'above expectations', 'strong quarter', 'record profit'],
+  },
+  {
+    id: 'guidance_raise',
+    label: 'Guidance Raise',
+    direction: 'up',
+    weight: 1.35,
+    keywords: ['raises guidance', 'guidance raise', 'upgrades forecast', 'improves outlook'],
+  },
+  {
+    id: 'partnership',
+    label: 'Strategic Partnership',
+    direction: 'up',
+    weight: 1.1,
+    keywords: ['partnership', 'strategic deal', 'joint venture', 'long-term contract'],
+  },
+]
+
+const tickerEntityMap = {
+  AAPL: ['apple', 'iphone', 'tim cook', 'cupertino'],
+  TSLA: ['tesla', 'elon musk'],
+  MSFT: ['microsoft', 'satya nadella', 'azure'],
+  TCS: ['tcs', 'tata consultancy', 'tata consultancy services'],
+  INFY: ['infosys', 'infy'],
+  RELIANCE: ['reliance', 'ril', 'mukesh ambani'],
+  NIFTY50: ['nifty', 'nifty 50', 'nse'],
+}
+
+function normalizeHeadline(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function escapeRegexToken(token) {
+  return token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function resolveTickerKeywords(ticker) {
+  const normalizedTicker = String(ticker || '')
+    .trim()
+    .toUpperCase()
+  const canonical = normalizedTicker.replace(/[^A-Z0-9]/g, '')
+  const base = tickerEntityMap[canonical] || []
+  const tickerWord = canonical.toLowerCase()
+  return Array.from(new Set([tickerWord, ...base]))
+    .map((item) => String(item).trim().toLowerCase())
+    .filter(Boolean)
+}
+
+function headlineMatchesTicker(normalizedHeadline, tickerKeywords) {
+  if (!normalizedHeadline || !tickerKeywords.length) return false
+  return tickerKeywords.some((keyword) => {
+    const pattern = new RegExp(`\\b${escapeRegexToken(keyword)}\\b`, 'i')
+    return pattern.test(normalizedHeadline)
+  })
+}
+
+function buildEventInsight({ ticker, headlinesByDate, alignedRows }) {
+  const alignedDates = new Set((alignedRows || []).map((row) => row.date))
+  const tickerKeywords = resolveTickerKeywords(ticker)
+  const detections = []
+  let consideredHeadlineCount = 0
+  let tickerMentionHeadlineCount = 0
+
+  for (const [date, headlines] of Object.entries(headlinesByDate || {})) {
+    if (!alignedDates.has(date)) continue
+    for (const headline of headlines || []) {
+      const normalized = normalizeHeadline(headline)
+      if (!normalized) continue
+      consideredHeadlineCount += 1
+      const tickerMatched = headlineMatchesTicker(normalized, tickerKeywords)
+      if (tickerMatched) tickerMentionHeadlineCount += 1
+      for (const rule of eventRulebook) {
+        const matchedKeyword = rule.keywords.find((keyword) => normalized.includes(keyword))
+        if (!matchedKeyword) continue
+        const relevanceMultiplier = tickerMatched ? 1.3 : 0.42
+        detections.push({
+          date,
+          category: rule.id,
+          label: rule.label,
+          direction: rule.direction,
+          weight: Number((rule.weight * relevanceMultiplier).toFixed(4)),
+          keyword: matchedKeyword,
+          tickerMatched,
+          headline: String(headline).slice(0, 180),
+        })
+      }
+    }
+  }
+
+  const byCategory = new Map()
+  for (const hit of detections) {
+    const current = byCategory.get(hit.category) || {
+      category: hit.category,
+      label: hit.label,
+      direction: hit.direction,
+      count: 0,
+      score: 0,
+      sampleHeadline: hit.headline,
+      tickerMatchedCount: 0,
+    }
+    current.count += 1
+    current.score += hit.weight
+    current.tickerMatchedCount += hit.tickerMatched ? 1 : 0
+    byCategory.set(hit.category, current)
+  }
+
+  const categoryRows = Array.from(byCategory.values())
+    .map((row) => ({
+      ...row,
+      score: Number(row.score.toFixed(3)),
+      normalizedImpact: Number((row.score / Math.max(1, Math.sqrt(row.count))).toFixed(3)),
+      tickerMatchedCount: row.tickerMatchedCount,
+    }))
+    .sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
+
+  const tickerCoverage =
+    consideredHeadlineCount > 0 ? tickerMentionHeadlineCount / consideredHeadlineCount : 0
+  const eventSignal =
+    categoryRows.reduce((sum, row) => sum + row.score, 0) / Math.max(1, Math.sqrt(detections.length || 1))
+  const trailingSentiment = alignedRows.slice(-3).map((row) => row.sentiment)
+  const sentimentSignal =
+    trailingSentiment.length > 0
+      ? trailingSentiment.reduce((sum, value) => sum + value, 0) / trailingSentiment.length
+      : 0
+  const coverageMultiplier = 0.18 + 0.82 * tickerCoverage
+  const combinedSignal = (0.64 * eventSignal + 0.36 * sentimentSignal) * coverageMultiplier
+  const probabilityDown = sigmoid(-combinedSignal * 1.9)
+  const probabilityUp = 1 - probabilityDown
+  const confidence = Math.abs(probabilityUp - probabilityDown) * (0.45 + 0.55 * tickerCoverage)
+  const expectedDirection =
+    probabilityUp > probabilityDown + 0.06
+      ? 'UP'
+      : probabilityDown > probabilityUp + 0.06
+        ? 'DOWN'
+        : 'NEUTRAL'
+
+  const topDrivers = categoryRows.slice(0, 3).map((row) => ({
+    category: row.label,
+    direction: row.direction,
+    frequency: row.count,
+    impactScore: row.score,
+    sampleHeadline: row.sampleHeadline,
+  }))
+
+  const explanation =
+    topDrivers.length > 0
+      ? `${ticker} event scan found ${topDrivers
+          .map((driver) => `${driver.category} (${driver.frequency})`)
+          .join(', ')}. Combined event pressure implies ${expectedDirection} bias for next-day return.`
+      : `No high-signal event keywords were detected for ${ticker}. Bias is driven mainly by aggregate sentiment trend.`
+
+  return {
+    ticker,
+    expectedDirection,
+    confidence: Number(confidence.toFixed(4)),
+    probabilityUp: Number(probabilityUp.toFixed(4)),
+    probabilityDown: Number(probabilityDown.toFixed(4)),
+    eventSignal: Number(eventSignal.toFixed(4)),
+    sentimentSignal: Number(sentimentSignal.toFixed(4)),
+    combinedSignal: Number(combinedSignal.toFixed(4)),
+    explanation,
+    topDrivers,
+    matchedEventCount: detections.length,
+    consideredHeadlineCount,
+    tickerMentionHeadlineCount,
+    tickerCoverage: Number(tickerCoverage.toFixed(4)),
+    matchedEventsPreview: detections.slice(0, 12),
+    disclaimer:
+      tickerCoverage < 0.12
+        ? 'Low ticker-specific headline coverage in selected window. Treat this signal as weak and mostly market-level.'
+        : 'Educational event-sentiment estimate only. Unexpected macro events and liquidity shifts can invalidate next-day bias.',
+  }
+}
+
 const csvFeatureNames = [
   'RSIadjclose15',
   'RSIadjclose25',
@@ -297,6 +516,7 @@ export async function runCsvPredictionAnalysis({ ticker, dateFrom, dateTo }) {
     },
     scatterData: [],
     rollingCorrelation: [],
+    eventInsight: null,
   }
 }
 
@@ -313,7 +533,7 @@ export async function runCorrelationAnalysis({ ticker, model, dateFrom, dateTo }
     throw new Error('dateFrom must be earlier than dateTo')
   }
 
-  const newsByDate = await loadNewsByDate({ dateFrom, dateTo })
+  const newsByDate = await loadNewsByDate({ dateFrom, dateTo, ticker })
   const prices = await loadPricesByDate({
     ticker,
     dateFrom,
@@ -346,6 +566,11 @@ export async function runCorrelationAnalysis({ ticker, model, dateFrom, dateTo }
   const rollingReturns = rollingCompoundReturn(returns, 5)
   const stats = correlationStats(correlation, aligned.length)
   const strengthLabel = correlationStrengthLabel(correlation)
+  const eventInsight = buildEventInsight({
+    ticker,
+    headlinesByDate: newsByDate,
+    alignedRows: aligned,
+  })
 
   return {
     ticker,
@@ -400,5 +625,6 @@ export async function runCorrelationAnalysis({ ticker, model, dateFrom, dateTo }
       day: r.date,
       value: r.value,
     })),
+    eventInsight,
   }
 }

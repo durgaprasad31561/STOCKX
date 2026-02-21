@@ -8,6 +8,7 @@ import { CandlestickChartAnalysis } from './components/CandlestickChartAnalysis'
 import { ChartsSection } from './components/ChartsSection'
 import { ControlPanel } from './components/ControlPanel'
 import { CorrelationCard } from './components/CorrelationCard'
+import { EventImpactPanel } from './components/EventImpactPanel'
 import { HeroSection } from './components/HeroSection'
 import { HistoryTable } from './components/HistoryTable'
 import { LoginEventsTable } from './components/LoginEventsTable'
@@ -47,6 +48,7 @@ function App() {
   const [stockReturnRows, setStockReturnRows] = useState([])
   const [educationReport, setEducationReport] = useState(null)
   const [analysisStats, setAnalysisStats] = useState(null)
+  const [eventInsight, setEventInsight] = useState(null)
   const [dataRange, setDataRange] = useState(null)
   const [historyRows, setHistoryRows] = useState(emptyHistory)
   const [loginEvents, setLoginEvents] = useState([])
@@ -175,6 +177,7 @@ function App() {
     setStockReturnRows([])
     setEducationReport(null)
     setAnalysisStats(null)
+    setEventInsight(null)
     setDataRange(null)
     setCorrelation(0)
     setAnimatedCorrelation(0)
@@ -214,6 +217,7 @@ function App() {
 
   async function handleRunAnalysis() {
     setError('')
+    setEventInsight(null)
     if (!auth?.token) {
       setError('Please login to use analysis.')
       setShowAuthOverlay(true)
@@ -245,6 +249,7 @@ function App() {
       setStockReturnRows(payload.stockReturnRows ?? [])
       setEducationReport(payload.educationalReport ?? null)
       setAnalysisStats(payload.stats ?? null)
+      setEventInsight(payload.eventInsight ?? null)
 
       const latestHistory = await fetchHistory()
       setHistoryRows(latestHistory.rows ?? [])
@@ -322,6 +327,7 @@ function App() {
         ) : null}
 
         <ChartsSection sentimentVsReturn={scatterData} rollingCorrelation={rollingData} />
+        <EventImpactPanel ticker={ticker} eventInsight={eventInsight} />
         <CandlestickChartAnalysis
           symbol={ticker}
           points={candlestickPoints}

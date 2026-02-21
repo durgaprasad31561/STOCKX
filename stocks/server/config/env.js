@@ -14,6 +14,7 @@ export const env = {
   port: Number(process.env.PORT ?? 5050),
   mongoUri: process.env.MONGO_URI ?? '',
   newsDatasetPath: process.env.NEWS_DATASET_PATH ?? defaultNewsPath,
+  tickerNewsDatasetPath: process.env.TICKER_NEWS_DATASET_PATH ?? '',
   csvPredictionDatasetPath: process.env.CSV_PREDICTION_DATASET_PATH ?? './server/data/uploads/data.csv',
   apiBaseUrl: process.env.API_BASE_URL ?? 'http://localhost:5050',
   clientBaseUrl: process.env.CLIENT_BASE_URL ?? 'http://localhost:5173',
@@ -26,4 +27,5 @@ export const env = {
   smtpPass: process.env.SMTP_PASS ?? '',
   emailFrom: process.env.EMAIL_FROM ?? '',
   googleClientId: process.env.GOOGLE_CLIENT_ID ?? '',
+  finnhubApiKey: process.env.FINNHUB_API_KEY ?? '',
 }

@@ -38,6 +38,13 @@ npm install
 copy .env.example .env
 ```
 3. Optional: configure `MONGO_URI` and `NEWS_DATASET_PATH` in `.env`.
+4. Optional (recommended for stock-specific event insight):
+   - Set `FINNHUB_API_KEY` in `.env`.
+   - Pull ticker-tagged news:
+```bash
+npm run news:finnhub -- --symbols AAPL,TSLA,MSFT,TCS,INFY,RELIANCE --from 2025-10-01 --to 2026-02-21
+```
+   - Set `TICKER_NEWS_DATASET_PATH=./server/data/ticker_news.csv` in `.env`.
 
 ## Run
 
@@ -101,3 +108,4 @@ npm run build
 4. Login attempts are stored in MongoDB Atlas `loginevents` collection, users are in `users`, and run/search history is in `runs`.
 5. Set `ADMIN_ACCESS_KEY` for admin register/login passkey checks.
 6. Do not use your Atlas connection password as app passkey; keep DB credentials and app auth secrets separate.
+7. If `TICKER_NEWS_DATASET_PATH` is set, analysis uses ticker-specific headlines first and falls back to `NEWS_DATASET_PATH` only when ticker coverage is missing.
